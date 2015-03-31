@@ -48,6 +48,7 @@ $route['(:any)'] = str_replace('-', '', $_SERVER['PATH_INFO']);
 }
 //$route['(:any)'] = str_replace('-', '', $_SERVER['QUERY_STRING']);
 
+//testing commit
 
 /* End of file routes.php */
 /* Location: ./application/config/routes.php */
