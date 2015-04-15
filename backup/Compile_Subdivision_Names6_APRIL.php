@@ -133,8 +133,83 @@
 			}
 		}
 		/****************************** 2 april code start******************************************/
-		revisit_location_subdivision();
-		
+		// Revisit Location_Subdivision table records... 
+		$mySql->query("SELECT Sub_id, Subdivision, City_id, Length(Subdivision) AS Len  FROM tb_Subdivision_City  WHERE Accepted=1 ORDER BY 3, 4 DESC, 2");
+	
+		if($mySql->getRecordsCount())
+		{
+			$mySql->fetchAllRecords($tb_Subdivision_City_properties, MYSQL_ASSOC);
+			//echo '<pre>';print_r($tb_Subdivision_City_properties); exit;
+
+			foreach($tb_Subdivision_City_properties as $tb_Subdivision_City_property)
+			{
+				//echo '<pre>';print_r($tb_Subdivision_City_property); 
+				$subdivision=$tb_Subdivision_City_property['Subdivision'];
+				$city_id=$tb_Subdivision_City_property['City_id'];
+				
+				if($tb_Subdivision_Mapping_match)
+				{	
+					$subdivision=$tb_Subdivision_Mapping_match;
+				}
+				
+				$mySql->query("SELECT * FROM tb_Subdivision_City  WHERE Accepted=0 AND  City_id=".$city_id." AND Subdivision ='".$subdivision."'");
+				
+				if($mySql->getRecordsCount())
+				{
+					$tb_Subdivision_matched_property=$mySql->fetchArray(MYSQL_ASSOC);
+					//echo '<pre>';print_r($tb_Subdivision_matched_property); 
+
+					$mySql->query("SELECT * FROM `Location_Subdivision` WHERE `Subdivision`='".$tb_Subdivision_matched_property['Subdivision']."' AND Sub_id=".$tb_Subdivision_matched_property['Sub_id']);
+
+					if($mySql->getRecordsCount())
+					{
+						$mySql->fetchAllRecords($Location_Subdivision_matched_properties, MYSQL_ASSOC);
+
+						$mySql->query("UPDATE  Location_Subdivision SET  Sub_id=".$tb_Subdivision_City_property['Sub_id']."  WHERE `Subdivision`='".$tb_Subdivision_matched_property['Subdivision']."'");
+					}
+					//Delete the matched tb_Subdivision_City record...
+					$mySql->query("DELETE FROM tb_Subdivision_City WHERE `Subdivision`='".$tb_Subdivision_matched_property['Subdivision'] ."' AND Sub_id=".$tb_Subdivision_matched_property['Sub_id']);
+				}
+			}
+
+			foreach($tb_Subdivision_City_properties as $tb_Subdivision_City_property)
+			{	
+				//echo '<pre>'; print_r($tb_Subdivision_City_property);
+				$mySql->query("SELECT l.* FROM Location_Subdivision l ,Real_Location r WHERE  l.Location_id = r.Location_id AND r.City_id= ".$tb_Subdivision_City_property['City_id']."  AND l.Sub_id =0 AND l.Subdivision LIKE '%".$tb_Subdivision_City_property['Subdivision']."%'");
+				
+				if($mySql->getRecordsCount() )
+				{
+					$Location_Subdivision_property=$mySql->fetchArray(MYSQL_ASSOC);
+					//echo '<pre>';print_r($Location_Subdivision_property); 
+					$mySql->query("SELECT * FROM `Location_Subdivision` WHERE `Sub_id`=".$tb_Subdivision_City_property['Sub_id']." AND Location_id= ". $Location_Subdivision_property['Location_id']);
+					//echo $mySql->getRecordsCount();exit;
+					if($mySql->getRecordsCount())
+					{
+						$tb_Subdivision_matched_location_id=$mySql->fetchArray(MYSQL_ASSOC);
+						//echo '<pre>';print_r($tb_Subdivision_matched_location_id);  exit;
+
+						//$mySql->query( "UPDATE  Location_Subdivision SET Count= Count+1 WHERE Location_id=".$Location_Subdivision_property['Location_id'].", Sub_id=".$tb_Subdivision_City_property['Sub_id'].", Subdivision  = '".$Location_Subdivision_property['Subdivision']."'");
+			
+						//if yes update counter
+						$mySql->query("DELETE FROM Location_Subdivision WHERE `Subdivision`='".$Location_Subdivision_property['Subdivision'] ."' AND Location_id=".$Location_Subdivision_property['Location_id']." AND Sub_id=".$Location_Subdivision_property['Sub_id']);
+					}
+					else
+					{
+						//echo "UPDATE Location_Subdivision SET Sub_id= ".$tb_Subdivision_City_property['Sub_id'].",  `Subdivision`='".$tb_Subdivision_City_property['Subdivision']."'  WHERE `Subdivision`='".$Location_Subdivision_property['Subdivision'] ."' AND Location_id=".$Location_Subdivision_property['Location_id']." AND Sub_id=".$Location_Subdivision_property['Sub_id']; exit;
+						$mySql->query("UPDATE Location_Subdivision SET Sub_id= ".$tb_Subdivision_City_property['Sub_id'].",  `Subdivision`='".$tb_Subdivision_City_property['Subdivision']."'  WHERE `Subdivision`='".$Location_Subdivision_property['Subdivision'] ."' AND Location_id=".$Location_Subdivision_property['Location_id']." AND Sub_id=".$Location_Subdivision_property['Sub_id']);
+					}
+				}
+			}
+			$mySql->query("SELECT  distinct l.Subdivision, l.Sub_id, count(l.Subdivision)as total, r.City_id  FROM Location_Subdivision l, Real_Location r WHERE  l.Location_id = r.Location_id  group by l.Subdivision");
+			if($mySql->getRecordsCount())
+			{
+				$mySql->fetchAllRecords($Location_Subdivision_records, MYSQL_ASSOC);
+				foreach($Location_Subdivision_records as $Location_Subdivision_result)
+				{
+					$mySql->query("UPDATE tb_Subdivision_City SET Count=".$Location_Subdivision_result['total']." WHERE `Subdivision`='".$Location_Subdivision_result['Subdivision'] ."' AND City_id=".$Location_Subdivision_result['City_id']." AND Sub_id=".$Location_Subdivision_result['Sub_id']);
+				}
+			}
+		}
 
 		/********************************Revisit Location Listing 2 april  end***************************************/
 		
@@ -503,87 +578,6 @@
 		return($subdivision);
 	}
 
-	function revisit_location_subdivision()
-	{
-		global $mySql;
-		// Revisit Location_Subdivision table records... 
-		$mySql->query("SELECT Sub_id, Subdivision, City_id, Length(Subdivision) AS Len  FROM tb_Subdivision_City  WHERE Accepted=1 ORDER BY 3, 4 DESC, 2");
-	
-		if($mySql->getRecordsCount())
-		{
-			$mySql->fetchAllRecords($tb_Subdivision_City_properties, MYSQL_ASSOC);
-			//echo '<pre>';print_r($tb_Subdivision_City_properties); exit;
-
-			foreach($tb_Subdivision_City_properties as $tb_Subdivision_City_property)
-			{
-				//echo '<pre>';print_r($tb_Subdivision_City_property); 
-				$subdivision=$tb_Subdivision_City_property['Subdivision'];
-				$city_id=$tb_Subdivision_City_property['City_id'];
-				
-				if($tb_Subdivision_Mapping_match)
-				{	
-					$subdivision=$tb_Subdivision_Mapping_match;
-				}
-				
-				$mySql->query("SELECT * FROM tb_Subdivision_City  WHERE Accepted=0 AND  City_id=".$city_id." AND Subdivision ='".$subdivision."'");
-				
-				if($mySql->getRecordsCount())
-				{
-					$tb_Subdivision_matched_property=$mySql->fetchArray(MYSQL_ASSOC);
-					//echo '<pre>';print_r($tb_Subdivision_matched_property); 
-
-					$mySql->query("SELECT * FROM `Location_Subdivision` WHERE `Subdivision`='".$tb_Subdivision_matched_property['Subdivision']."' AND Sub_id=".$tb_Subdivision_matched_property['Sub_id']);
-
-					if($mySql->getRecordsCount())
-					{
-						$mySql->fetchAllRecords($Location_Subdivision_matched_properties, MYSQL_ASSOC);
-
-						$mySql->query("UPDATE  Location_Subdivision SET  Sub_id=".$tb_Subdivision_City_property['Sub_id']."  WHERE `Subdivision`='".$tb_Subdivision_matched_property['Subdivision']."'");
-					}
-					//Delete the matched tb_Subdivision_City record...
-					$mySql->query("DELETE FROM tb_Subdivision_City WHERE `Subdivision`='".$tb_Subdivision_matched_property['Subdivision'] ."' AND Sub_id=".$tb_Subdivision_matched_property['Sub_id']);
-				}
-			}
-
-			foreach($tb_Subdivision_City_properties as $tb_Subdivision_City_property)
-			{	
-				//echo '<pre>'; print_r($tb_Subdivision_City_property);
-				$mySql->query("SELECT l.* FROM Location_Subdivision l ,Real_Location r WHERE  l.Location_id = r.Location_id AND r.City_id= ".$tb_Subdivision_City_property['City_id']."  AND l.Sub_id =0 AND l.Subdivision LIKE '%".$tb_Subdivision_City_property['Subdivision']."%'");
-				
-				if($mySql->getRecordsCount() )
-				{
-					$Location_Subdivision_property=$mySql->fetchArray(MYSQL_ASSOC);
-					//echo '<pre>';print_r($Location_Subdivision_property); 
-					$mySql->query("SELECT * FROM `Location_Subdivision` WHERE `Sub_id`=".$tb_Subdivision_City_property['Sub_id']." AND Location_id= ". $Location_Subdivision_property['Location_id']);
-					//echo $mySql->getRecordsCount();exit;
-					if($mySql->getRecordsCount())
-					{
-						$tb_Subdivision_matched_location_id=$mySql->fetchArray(MYSQL_ASSOC);
-						//echo '<pre>';print_r($tb_Subdivision_matched_location_id);  exit;
-
-						//$mySql->query( "UPDATE  Location_Subdivision SET Count= Count+1 WHERE Location_id=".$Location_Subdivision_property['Location_id'].", Sub_id=".$tb_Subdivision_City_property['Sub_id'].", Subdivision  = '".$Location_Subdivision_property['Subdivision']."'");
-			
-						//if yes update counter
-						$mySql->query("DELETE FROM Location_Subdivision WHERE `Subdivision`='".$Location_Subdivision_property['Subdivision'] ."' AND Location_id=".$Location_Subdivision_property['Location_id']." AND Sub_id=".$Location_Subdivision_property['Sub_id']);
-					}
-					else
-					{
-						//echo "UPDATE Location_Subdivision SET Sub_id= ".$tb_Subdivision_City_property['Sub_id'].",  `Subdivision`='".$tb_Subdivision_City_property['Subdivision']."'  WHERE `Subdivision`='".$Location_Subdivision_property['Subdivision'] ."' AND Location_id=".$Location_Subdivision_property['Location_id']." AND Sub_id=".$Location_Subdivision_property['Sub_id']; exit;
-						$mySql->query("UPDATE Location_Subdivision SET Sub_id= ".$tb_Subdivision_City_property['Sub_id'].",  `Subdivision`='".$tb_Subdivision_City_property['Subdivision']."'  WHERE `Subdivision`='".$Location_Subdivision_property['Subdivision'] ."' AND Location_id=".$Location_Subdivision_property['Location_id']." AND Sub_id=".$Location_Subdivision_property['Sub_id']);
-					}
-				}
-			}
-			$mySql->query("SELECT  distinct l.Subdivision, l.Sub_id, count(l.Subdivision)as total, r.City_id  FROM Location_Subdivision l, Real_Location r WHERE  l.Location_id = r.Location_id  group by l.Subdivision");
-			if($mySql->getRecordsCount())
-			{
-				$mySql->fetchAllRecords($Location_Subdivision_records, MYSQL_ASSOC);
-				foreach($Location_Subdivision_records as $Location_Subdivision_result)
-				{
-					$mySql->query("UPDATE tb_Subdivision_City SET Count=".$Location_Subdivision_result['total']." WHERE `Subdivision`='".$Location_Subdivision_result['Subdivision'] ."' AND City_id=".$Location_Subdivision_result['City_id']." AND Sub_id=".$Location_Subdivision_result['Sub_id']);
-				}
-			}
-		}
-	}
 	 trace(PROCESS_NAME.' completed.');
 	if (LOG_TO_FILE and $flog) fclose($flog);
     $mySql->close();
